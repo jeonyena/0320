@@ -41,9 +41,8 @@ class Login_UI:
         self.name = self.ui.lineEdit_name
         self.mail = self.ui.lineEdit_mail
 
-        self.name.setText("전예나")
-        self.mail.setText("yenajun0319@gmail.com")
-
+        # self.name.setText("전예나")
+        # self.mail.setText("yenajun0319@gmail.com")
 
         self.ui.pushButton.clicked.connect(self.check_id)
 

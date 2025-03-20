@@ -1,7 +1,6 @@
+import os
 from shotgun_api3 import Shotgun
-import re
 import file_parsing
-import pub
 import json
 from singleton_sg import Singleton_SG
 
@@ -20,8 +19,6 @@ class MyTask:
             self.entities = self.get_entities(self.tasks)
             self.folders = self.create_folders(self.tasks)
             self.path_list = self.create_paths(project)
-
-            self.task_data = self.pass_data(self.tasks)
 
             self.display_folders()
 
@@ -46,7 +43,7 @@ class MyTask:
             ['task_assignees', 'is', {'type': 'HumanUser', 'id': self.user_id}],
             ['project', 'is', {'type': 'Project', 'id': self.project_id}]
         ]
-        fields = ['start_date', 'due_date', 'entity',
+        fields = ['start_date', 'due_date', 'entity','status'
                    'content', 'step', 'sg_description', 'duration']
 
         tasks = self.sg.find("Task", filters, fields)
@@ -122,211 +119,193 @@ class MyTask:
             return self.path_list
 
 
-      def pass_data(self, task):
-            """나에게 할당된 태스크의 정보들을 보여주는 함수"""
-
-            for task_name in self.tasks:
-                  if task == task_name:
-                        f"task start : {task['start_date']}"
-            return
-                  # days = int(task['duration'] / 60 / 8)    
-                  # for entity in entities:
-
-                  #       pub_data =  {
-                  #             'sg': self.sg,
-                  #             'user_id': self.user_id,
-                  #             'task_data' : {'type': 'Task', 
-                  #                         'start_date': task['start_date'], 
-                  #                         'due_date' : task['due_date'],
-                  #                         'duration' : f"{days} Days",
-                  #                         'type' : entity['id']}
-                  #                   }
-
-                  # print(f" published data : {pub_data}")
-                  # return pub_data
-
-if __name__ == "__main__":
-    MyTask(user_id=133, project='Jupiter')
 
 
 
+class SGPublisher:
+      def __init__(self,pub_dict):
+            """ShotGrid 퍼블리시를 처리하는 클래스"""
 
-class SG_Publish:
-      """받은 경로를 샷그리드에 퍼블리쉬하는 클래스
-      로더할 때 가진 데이터 기반으로 진행"""
+            print("예나의 고생끝 sg publisher 시작하것습ㅈ니다. 끝내주는 코드 시작~~!!@")
 
-      def __init__(self, pub_dict):
+            if pub_dict is None:
+                  raise ValueError("Error: SGPublisher에 전달된 pub_dict가 None입니다.")
+            if 'pub_files' not in pub_dict:
+                  raise KeyError("Error: pub_dict에 'pub_files' 키가 없습니다.")
 
-            init_sg = Singleton_SG()
-            self.sg = init_sg.sg
-            # import sys
-            # sys.path.append("/nas/Batz_Maru/pingu/nana/sh1n/0314")
-           
-            # self.path = "/nas/Batz_Maru/Jupiter/work/Ep1_0010_Layout/scenes/Ep1_0010_v001.ma"  #마야에서 실행할 땐 주석하세이
-            # self.parsed_data = self.parsing_path(self.path)
-            # print(f"current path in sg_api : {self.path}")
+            print(f"받은 pub_dict: {pub_dict}") 
+
+            self.sg = Singleton_SG().sg  
+            self.published_files = []  
+            self.version_id = None  
             
-            # self.get_id()
-
-            # self.set_data(self.description)
-            # self.pub_to_sg()
-            # self.create_version()
-            # self.update_version()
-
-      def search_value(self):
-
-            """파일의 길이에 따라서 반복돌게 하기
-            딕셔너리 value에 따라서 'copy' / 'path' / version / pub files 바뀌도록 하기"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      def parsing_path(self,path):
-            """경로를 파싱하여 필요한 정보 가져오기"""
-            print("def parsing path")
-
-            # parser = 
-            parser = file_parsing.FileParser(path)
-            self.parsed = parser.data
-
-            self.key = parser.matched_key
-            f_project = self.parsed.get('project')
-            f_work_dir = self.parsed.get('work_dir')
-            f_type_info = []
-            f_step = self.parsed.get('step')
+            self.pub_dict = self.get_dict(pub_dict)  
             
-            if self.key in ['maya_seq', 'seq']: 
-                  f_type_info = f"{self.parsed.get('seq_name')}_{self.parsed.get('shot_num')}"
-                  self.type = 'seq'
+            self.user_id = self.get_user_id()
 
+            self.parsed_data = self.parse_file_path(pub_dict['pub_files']['pub_maya'])
+            self.project = self.get_project_id(self.parsed_data['project'])
+
+            self.entity = self.get_entity_id(self.project, self.parsed_data['type_info'], self.parsed_data['entity_type'])
+            self.task = self.get_task_id(self.project, self.entity, self.parsed_data['step'], self.parsed_data['entity_type'])
+
+            self.publish_data = self.create_publish_files_data()
+            self.create_and_publish_files()
+
+            version_data = self.create_version_data()
+            self.create_version(version_data)
+
+
+      def get_dict(self,pub_dict):
+            """딕셔너리를 받는 함수입니다"""
+
+            self.pub_dict = pub_dict
+
+            if pub_dict['pub_files']['pub_maya']:
+                  print(f"got publish dictionary : {pub_dict}")
             else:
-                  f_type_info = self.parsed.get('asset_name')
-                  self.type = 'asset'
+                  print("없더여")
+
+            maya_file = self.parse_file_path(pub_dict['pub_files']['pub_maya'])
             
-            print(f"type info : {f_type_info}")
 
-            self.data = {
-                  'project' : f_project, 
-                  'work_dir' : f_work_dir, 
-                  'type_info' : f_type_info, 
-                  'step' : f_step,
-                  }
-            
-            print(f"parsed file data : {self.data}")
+            self.pub_dict['parsed_data'] = maya_file  
+            return self.pub_dict 
 
-      def get_id(self):
-            """파싱된 정보를 가지고 shotgrid 에서 id를 가져오는 함수"""
 
-            json_file_path = '/nas/Batz_Maru/pingu/nana/yenyaong/user_info.json'
+      def get_user_id(self):
+            """json에서 사용자 아이디 가져오기"""
+
+            json_file_path = '/nas/Batz_Maru/pingu/nana/user_info.json'
             with open(json_file_path, 'r', encoding='utf-8') as file:
                   user_info = json.load(file)
-            self.user_id = user_info.get('id')
-            print(f" user id : {self.user_id}")
+            return user_info.get('id')
 
-            self.project = self.sg.find_one("Project" , [['name' , 'is' , self.data['project']]] , ['id'])
+      def parse_file_path(self, path):
+            """파일 경로를 파싱하여 프로젝트, 엔티티, 태스크 정보 추출"""
 
-            if 'seq_name' in self.parsed:
-                  self.type = self.sg.find_one("Shot", 
-                        [['project', 'is', {'type': 'Project', 'id': self.project['id']}],  
-                        ['code', 'is', self.data['type_info']]],  
-                        ['id']
-                  )
-                  self.entity_type = 'Shot'
+            parser = file_parsing.FileParser(path)
+            self.parsed = parser.data
+            self.key = parser.matched_key
+
+            f_project = self.parsed.get('project')
+            f_work_dir = self.parsed.get('work_dir')
+            f_step = self.parsed.get('step')
+
+            if self.key in ['maya_seq', 'seq']: 
+                  f_type_info = f"{self.parsed.get('seq_name')}_{self.parsed.get('shot_num')}"
+                  f_entity_type = 'Shot'
             else:
-                  self.type = self.sg.find_one("Asset", 
-                        [['project', 'is', {'type': 'Project', 'id': self.project['id']}], 
-                        ['code', 'is', self.data['type_info']]],  
-                        ['id']
-                  )
-                  self.entity_type = 'Asset'
+                  f_type_info = self.parsed.get('asset_name')
+                  f_entity_type = 'Asset'
 
-            self.task = self.sg.find_one("Task",
-                                  [['project' , 'is' ,{'type' : 'Project' ,'id' :self.project['id']}],
-                                   ['entity', 'is', {'type' : self.entity_type, 'id' : self.type['id']}],
-                                   ['content','is', self.data['step']]],
-                                    ['id','start_date','due_date','duration'])
-
-
-            print(f"user_id : {self.user_id} project_id : {self.project['id']} task : {self.task} type : {self.type['id']}  entity : {self.entity_type}")
+            parsed_data = {
+                  'project': f_project,
+                  'work_dir': f_work_dir,
+                  'entity_type' : f_entity_type,
+                  'type_info': f_type_info,
+                  'step': f_step,
+            }
+            
+            print(f" parsed file data: {parsed_data}")
+            return parsed_data
 
 
+      def get_project_id(self, project_name):
+            """프로젝트 ID 조회"""
+            project = self.sg.find_one("Project", [['name', 'is', project_name]], ['id'])
+            if not project:
+                  raise ValueError(f"Error: Project '{project_name}' 없음")
+            return project
 
-      def set_data(self,description):
-            """샷그리드에 생성하기 전에 데이터를 만드는 작업을 하는 함수"""
-            # description = "T^T"
-            self.publish_data = {  
-                  'project': {'type': 'Project', 'name': self.data['project'], 'id' : self.project['id']},   
-                  'code': self.path,
+      def get_entity_id(self, project, type_info, entity_type):
+            """엔티티 ID 조회 (Shot 또는 Asset)"""
+            entity = self.sg.find_one(entity_type, [
+                  ['project', 'is', {'type': 'Project', 'id': project['id']}],
+                  ['code', 'is', type_info]
+            ], ['id'])
+            if not entity:
+                  raise ValueError(f"Error: {entity_type} '{type_info}' 없음")
+            return entity
+
+      def get_task_id(self, project, entity, step, entity_type):
+            """태스크 ID 조회"""
+            task = self.sg.find_one("Task", [
+                  ['project', 'is', {'type': 'Project', 'id': project['id']}],
+                  ['entity', 'is', {'type': entity_type, 'id': entity['id']}],
+                  ['content', 'is', step]
+            ], ['id'])
+            if not task:
+                  raise ValueError(f"Error: Task '{step}' 없음")
+            return task
+
+      def create_publish_files_data(self):
+            """퍼블리시할 파일들의 데이터를 생성"""
+
+
+            if not hasattr(self, 'pub_dict'):
+                  raise AttributeError("Error: self.pub_dict가 존재하지 않습니다. __init__에서 초기화되었는지 확인하세요.")
+
+            if 'pub_files' not in self.pub_dict:
+                  print(f" Warning: self.pub_dict에 'pub_files' 키가 없습니다. 복구 시도 중...")
+                  self.pub_dict = self.get_dict(self.pub_dict)  
+
+            if 'pub_files' not in self.pub_dict:
+                  raise KeyError("Error: self.pub_dict에 'pub_files' 키가 없습니다.")
+
+            print(f"디버깅: create_publish_files_data에서 self.pub_dict = {self.pub_dict}")
+ 
+            
+            files = [self.pub_dict['pub_files']['pub_maya']] + self.pub_dict['pub_files']['Cache_abc_list']
+            return [
+                  {
+                  'project': {'type': 'Project', 'id': self.project['id']},
+                  'code': file_path,
                   'task': {'type': 'Task', 'id': self.task['id']},
-                  'entity' : {'type' : self.entity_type, 'name' :self.data['type_info'], 'id' : self.type['id']},
-                  'path': {'local_path': self.path},
-                  'description' : description        
+                  'entity': {'type': self.parsed_data['entity_type'], 'id': self.entity['id']},
+                  'path': {'local_path': file_path},
+                  'description': self.pub_dict['pub_info']['description']
                   }
-            
-            print(f"Set data: {self.publish_data}")
+                  for file_path in files
+            ]
 
-      def pub_to_sg(self):
-            """샷그리드에 데이터를 만드는 함수"""
-            self.result = self.sg.create("PublishedFile", self.publish_data) 
-            print(f"Published File Created: {self.result}")
-      
-      def create_version(self):
-            """퍼블리쉬 된 파일을 버전업하는 함수"""
+      def create_and_publish_files(self):
+            """ShotGrid에 퍼블리시 파일을 생성"""
+            for publish_data in self.publish_data:
+                  self.create_publish_file(publish_data)
 
-            prj_id = self.project['id']
-            print(f" project id : {prj_id}")
+      def create_publish_file(self, data):
+            """퍼블리시 파일 생성"""
+            result = self.sg.create("PublishedFile", data)
+            self.published_files.append(result['id'])
+            print(f"Created PublishedFile: {result}")
 
-            pub_file = self.sg.find("PublishedFile" , 
-                                    [['project','is',{'type' :'Project','id' : prj_id}],
-                                     ['code','is',self.publish_data['code']]],['id'])
+      def create_version_data(self):
+                  """버전 데이터를 생성"""
 
-            # ver_count = len(pub_file)
+                  version_data =  {
+                        'project': {'type': 'Project', 'id': self.project['id']},
+                        'code': self.pub_dict['pub_files']['pub_maya'],
+                        'entity': {'type': self.parsed_data['entity_type'], 'id': self.entity['id']},
+                        'published_files': [{'type': 'PublishedFile', 'id': pub_id} for pub_id in self.published_files],
+                        'sg_task': {'type': 'Task', 'id': self.task['id']}
+                  }
+                  return version_data
 
-            # if pub_file:
-            #       current_ver = ver_count + 1
+      def create_version(self,version_data):
+            """퍼블리시된 파일과 연결된 버전 생성"""
+            version_result = self.sg.create("Version", version_data)
+            self.version_id = version_result['id']
+            print(f"Created Version: {version_result}")
+            self.upload_version(self.pub_dict['pub_files']['Confirm_mov'], "sg_uploaded_movie")
 
-            version_data = {
-                  'project' : self.publish_data['project'],
-                  # 'code' : f"{self.path}_v{current_ver :03d}",
-                  'code' : f"{self.path}",
-                  'entity' : {'type' : self.publish_data['entity']['type'], 'id': self.publish_data['entity']['id']},
-                  'published_files' : [{'type' : 'PublishedFile', 'id' : self.result['id']}]
-            }
-            print(f" version data : {version_data}")
-            self.version_up = self.sg.create("Version", version_data) 
-
-      def update_version(self):
-            """version create하면서 update 해주는 클래스"""
-            version_id = self.version_up['id']
-            
-            change_workdir = self.path.replace(self.path.split('/')[4],"confirm")
-            change_workspace = change_workdir.replace(change_workdir.split('/')[-2],"mov")
-            change_ext = change_workspace.replace(change_workspace.split('/')[-1].split('.')[-1],'mov')
-            print(f" change ext : {change_ext}")
-            # if os.isdir
-            update_ver = self.sg.update("Version", version_id, {"sg_uploaded_movie" : change_ext})
-
-            print(f"mov 추가됏서여")
-            """/nas/Batz_Maru/Jupiter/confirm/IndoRex_Character_Lookdev/mov/IndoRex_v025.mov"""
-
-      def send_data(self):
-            """ ui에 필요한 정보를 넘겨주는 함수"""
-            days = int(self.task['duration'] / 60 / 8)
-            ui_data = {
-            'start_date' : self.task['start_date'],
-            'due_date' : self.task['start_date'],
-            'duration' : f"{days} Days"
-            }
-
-            return ui_data
+      def upload_version(self, file_path, field_name):
+            """ShotGrid에 파일을 업로드하고, 업로드된 파일의 ID를 반환"""
+            if not os.path.exists(file_path):
+                  print(f"Error: {file_path} 없음")
+                  return None
+            uploaded_file_id = self.sg.upload("Version", self.version_id, file_path, field_name)
+            print(f"Uploading file to ShotGrid: {file_path}")
+            if uploaded_file_id:
+                  print(f"파일 업로드 완료: {uploaded_file_id}")
+            return uploaded_file_id

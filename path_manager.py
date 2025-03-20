@@ -106,19 +106,19 @@ class MayaPathManager:
         self.work_maya_path = self.current_maya_path
         # 확장자 제거된 파일 위치
         self.no_dot_ext_work_path = self.work_maya_path.replace(f".{self.ext}","")
-        print(f" define pub path No ext work path:{self.no_dot_ext_work_path}")
+        # print(f" define pub path No ext work path:{self.no_dot_ext_work_path}")
         
         # work -> pub 변경 (select ext 적용안됨)
         self.change_to_pub = self.work_maya_path.replace(self.work_dir, "pub")
-        print(f"define pub path change to pub:{self.change_to_pub}")
+        # print(f"define pub path change to pub:{self.change_to_pub}")
         
         # pub으로 바뀐 파일위치 경로
         self.pub_parent_dir = Path(self.change_to_pub).parent
-        print(f"define pub path pub parent dir:{self.pub_parent_dir}")
+        # print(f"define pub path pub parent dir:{self.pub_parent_dir}")
         
         # pub으로 바뀐 확장자 제거된 경로
         self.no_dot_ext_pub_path = self.change_to_pub.replace(f".{self.ext}","")
-        print(f"define pub path no ext pub path:{self.no_dot_ext_pub_path}")
+        # print(f"define pub path no ext pub path:{self.no_dot_ext_pub_path}")
         
     def define_cache_path(self): # 알렘빅 캐쉬 Data
         """

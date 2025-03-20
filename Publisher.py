@@ -1,14 +1,4 @@
-"""
-from importlib import reload
-import sys
 
-sys.path.append("/nas/Batz_Maru/pingu/nana/merge")
-
-
-import HappyPub_0318
-reload(HappyPub_0318)
-w = HappyPub_0318.PublishAppManager()
-"""
 
 try:
     from PySide6.QtWidgets import QMainWindow, QApplication, QMenu, QMessageBox
@@ -17,6 +7,8 @@ try:
     from PySide6.QtUiTools import QUiLoader
     from PySide6.QtCore import Qt, QFile, QRect, QRect, QTimer, QSize
     from PySide6.QtGui import QPainter, QPixmap, QIcon, QCursor, QMovie
+
+
 except:
     from PySide2.QtWidgets import QMainWindow, QApplication, QMenu, QMessageBox
     from PySide2.QtWidgets import QVBoxLayout, QHBoxLayout, QTreeWidget, QDialog
@@ -45,10 +37,12 @@ from path_manager import MayaPathManager
 import sys
 sys.path.append("/nas/Batz_Maru/pingu/nana/yenyaong")
 
-import sg_api
+import sg_api_v01
 
+import popup
 
-# from sg_api_test_2 import SG_Publish
+# pc = popup.PublishComplete
+# ABCError = popup.ABCError
 
 
 class PublishAppManager(QMainWindow):
@@ -70,6 +64,8 @@ class PublishAppManager(QMainWindow):
 
         # UIManager : UI 기능 모음
         self.ui_manager = UIManager(self)
+
+
         
     def receive_pub_data(self, pub_data):
             """
@@ -87,12 +83,16 @@ class PublishAppManager(QMainWindow):
 
             self.pub_data = pub_data
             print("MayaFileManager에서 전달받은 데이터:", self.pub_data)
-            p = sg_api.SGPublisher(self.pub_data) 
+            p = sg_api_v01.SGPublisher(self.pub_data) 
             S = p.get_dict(self.pub_data)
             print("SG 전송완료")
 
+            # 퍼블리쉬 완료 메시지 팝업
+            w = popup.PublishComplete()
+            popopopopo = w.pub_complete(self.ui)
+
     def load_ui(self):
-        ui_file_path = "/nas/Batz_Maru/pingu/nana/merge/Happypub_0318.ui"
+        ui_file_path = "/nas/Batz_Maru/pingu/nana/merge/Publisher.ui"
         ui_file = QFile(ui_file_path)
         loader = QUiLoader()
         self.ui = loader.load(ui_file)
@@ -412,7 +412,7 @@ class UIManager:
 
 
 
-
+# import popup
 
 class MayaFileManager(MayaPathManager):
     """Maya 씬을 관리하고 저장 및 내보내기 기능을 제공하는 클래스"""
@@ -423,6 +423,9 @@ class MayaFileManager(MayaPathManager):
         self.pub_app_manager = pub_app_manager
         self.pub_app_ui = pub_app_manager.ui
         self.pub_app_result = {}
+
+        # popup.apply_styles(self.ui)
+        # popup.load_images(self.ui)
 
 
     def to_publish(self):
@@ -456,6 +459,11 @@ class MayaFileManager(MayaPathManager):
 
         """Pub경로로 복사"""
         self.pub_parent_dir = os.path.dirname(self.pub_file_path)
+
+        """폴더생성"""
+        if not os.path.exists(self.pub_parent_dir):
+            os.makedirs(self.pub_parent_dir)  # 폴더 생성
+            print(f" 디렉터리 생성됨: {self.pub_parent_dir}")
 
         print("파일 복사중~~~~~~~~~")
         shutil.copy(self.work_output_path, self.pub_file_path) # 파일 복사
@@ -494,13 +502,22 @@ class MayaFileManager(MayaPathManager):
         for cache_file in self.cache_files:
             if cache_file.endswith(".abc"):
                 self.pub_cache_list.append(os.path.join(self.cache_parent_dir, cache_file))
+        
+        import popup
+        w = popup.ABCError()
+        # 선택된 오브젝트 없을시 에러 UI
+        if not cmds.ls(selection=True):  # 선택된 오브젝트가 없을 경우
+            w.show_error_message()  # UI 오류 메시지 표시
+            return
+
+
 
         # 선택된 오브젝트 가져오기
-        self.user_selection = cmds.ls(selection=True)[0]
+        self.user_selection = cmds.ls(selection=True)[0]  # 첫번째 선택된 오브젝트 기준
 
-        if not self.user_selection:
-            cmds.warning("선택된 오브젝트가 없습니다.")
-            return
+
+
+
 
         # 선택된 첫 번째 오브젝트 기준으로 파일명 설정
         object_name = self.user_selection
@@ -526,14 +543,12 @@ class MayaFileManager(MayaPathManager):
         #오브젝트 추가 부분
         cmd += f"-root {self.user_selection} "
 
-        #파일 저장 경로
-        cmd += f"-file {self.abc_file}"
-        cmds.AbcExport(jobArg=cmd)
-
+        #파일 저장 경로self.ui
         print("Cache경로에 Alembic Cache파일이 생성이 완료되었습니다.")
         print(f"{self.abc_file}")
 
         import time
+
         # 파일이 실제로 생성될 때까지 대기
         wait_time = 5
         while not os.path.exists(self.abc_file) and wait_time < 10:  # 최대 10초 대기
@@ -766,6 +781,9 @@ class PlayBlastHandler(MayaPathManager):
         """현재 선택된 카메라 가져오기"""
         self.selected_camera = cmds.ls(selection=True, type="transform")
         if not self.selected_camera:
+            import popup
+            w = popup.CameraError()
+            w.show_error_message(self.ui)
             cmds.warning("카메라를 선택해주세요.")
             return None
         
@@ -886,18 +904,22 @@ class PlayBlastHandler(MayaPathManager):
 
 
         try:
-            print(f"🔹 ffmpeg 변환 시작: {self.confirm_mov_path}")
+            print(f"ffmpeg 변환 시작: {self.confirm_mov_path}")
             result = subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
-            print(f"✅ ffmpeg 변환 완료: {self.confirm_mov_path}")
-            print("📜 FFmpeg 출력 로그:")
+            print(f"ffmpeg 변환 완료: {self.confirm_mov_path}")
+            print("FFmpeg 출력 로그:")
             print(result.stdout)
 
         except subprocess.CalledProcessError as e:
-            print(f"❌ ffmpeg 변환 실패: {e}")
-            print("🔍 FFmpeg 에러 로그:")
+            print(f"ffmpeg 변환 실패: {e}")
+            print("FFmpeg 에러 로그:")
             print(e.stderr)
             return
-        # 변환된 MOV 파일을 RV로 재생할지 여부 확인 후 실행
+        
+        # 플레이 블라스트 슬레이트 생성
+        # self.make_slate()
+        
+        # RV로 MOV 파일 재생
         self.play_playblast()
 
     def play_playblast(self):
@@ -920,9 +942,9 @@ class PlayBlastHandler(MayaPathManager):
 
 
 
-
-
 if __name__=="__main__":
     app = QApplication()
     w = PublishAppManager()
     app.exec_()
+
+
