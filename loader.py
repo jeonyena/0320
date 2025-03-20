@@ -1,26 +1,22 @@
 
 try:
     from PySide6.QtWidgets import QMainWindow, QApplication, QMenu
-    from PySide6.QtWidgets import QVBoxLayout, QGridLayout, QTreeWidget, QTableWidgetItem
-    from PySide6.QtWidgets import QHBoxLayout, QLabel, QComboBox, QTreeWidgetItem
-    from PySide6.QtWidgets import QPushButton, QWidget, QHeaderView, QListWidgetItem
+    from PySide6.QtWidgets import QVBoxLayout,QTableWidgetItem, QLabel
+    from PySide6.QtWidgets import QWidget, QListWidgetItem, QTreeWidgetItem
     from PySide6.QtUiTools import QUiLoader
-    from PySide6.QtGui import QPixmap, QCursor
     from PySide6.QtCore import Qt, QFile, QSize, QObject
     from PySide6.QtGui import QIcon, QColor, QFontMetrics 
-    from PySide6.QtGui import QStandardItemModel, QStandardItem
-    import shutil
+    from PySide6.QtGui import QStandardItemModel, QStandardItem, QPixmap
+
     
 except:
     from PySide2.QtWidgets import QMainWindow, QApplication, QMenu
-    from PySide2.QtWidgets import QVBoxLayout, QGridLayout, QTreeWidget, QTableWidgetItem
-    from PySide2.QtWidgets import QHBoxLayout, QLabel, QComboBox, QTreeWidgetItem
-    from PySide2.QtWidgets import QPushButton, QWidget, QHeaderView, QListWidgetItem
+    from PySide2.QtWidgets import QVBoxLayout, QTableWidgetItem, QLabel
+    from PySide2.QtWidgets import QWidget, QListWidgetItem, QTreeWidgetItem
     from PySide2.QtUiTools import QUiLoader
-    from PySide2.QtGui import QPixmap, QCursor
     from PySide2.QtCore import Qt, QFile, QSize, QObject
     from PySide2.QtGui import QIcon, QColor, QFontMetrics 
-    from PySide2.QtGui import QStandardItemModel, QStandardItem
+    from PySide2.QtGui import QStandardItemModel, QStandardItem, QPixmap
     import maya.cmds as cmds
     import shutil
 
@@ -83,7 +79,6 @@ class MainCtrl(QMainWindow):
 class ShotGridMgr:
     def __init__(self, path_manager):
         self.path_manager = path_manager
-        self.task_dict = {}
 
     def set_task_name(self, task_name):
         self.current_task = task_name
@@ -156,7 +151,7 @@ class MayaMgr:
             file_extension = os.path.splitext(file_path)[-1].lower()
             file_type = "mayaAscii" if file_extension == ".ma" else "mayaBinary"
 
-            print(f"✅ Import 실행: {file_path}")
+            print(f"Import 실행: {file_path}")
             cmds.file(file_path, open=True, force=True, type=file_type, ignoreVersion=True, options="v=0;")
 
 
@@ -167,14 +162,14 @@ class MayaMgr:
             file_extension = os.path.splitext(file_path)[-1].lower()
             file_type = "mayaAscii" if file_extension == ".ma" else "mayaBinary"
 
-            print(f"✅ Import 실행: {file_path}")
+            print(f"Import 실행: {file_path}")
             cmds.file(file_path, i=True, type=file_type, ignoreVersion=True, ra=True, mergeNamespacesOnClash=False, options="v=0;", pr=True, importFrameRate=True)
 
     def maya_reference(self):
         file_path = os.path.join(self.table_mgr.current_folder, self.selected_item)
 
         if not os.path.exists(file_path):
-            print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
+            print(f"파일을 찾을 수 없습니다: {file_path}")
             return
 
         file_extension = os.path.splitext(file_path)[-1].lower()
@@ -191,8 +186,6 @@ class SubUISetup:
         self.path_manager = path_manager
         self.shotgrid_mgr = shotgrid_mgr
 
-        # self.label_sub()
-
         self.ui.treeWidget.itemClicked.connect(self.listWidget_info)
         self.ui.tableWidget.cellClicked.connect(self.tableWidget_info)
         self.ui.treeWidget_task.itemClicked.connect(self.listWidget_task_info)
@@ -200,12 +193,12 @@ class SubUISetup:
     def tableWidget_info(self, row, column):
         sub_list_info = []
 
-        # 파일명 가져오기
+        # 파일명
         item = self.ui.tableWidget.item(row, column)
         file_name = item.text().strip()
         sub_list_info.append(f"Name : {file_name}")
 
-        # 경로 가져오기
+        # 경로
         path_name = self.label_path.text().strip()
         project_name = path_name.split("/")[3]  
         sub_list_info.append(f"Project : {project_name}")  
@@ -220,13 +213,10 @@ class SubUISetup:
 
         sub_list_info.append(f"Name : {file_name}")
         self.shotgrid_mgr.set_task_name(file_name)
-        print (f"파일이름?{file_name}")
         result = self.shotgrid_mgr.pull_task_info(file_name)
-        print (f"샷건자료넘어옴?{result}")
         sub_list_info.extend(result)
 
         self.listWidget_sub(sub_list_info)
-
 
     def listWidget_info(self, item):
         
@@ -243,8 +233,6 @@ class SubUISetup:
             item = QListWidgetItem(info) 
             item.setToolTip(info) 
             self.ui.listWidget_sub.addItem(item)
-
-
 
 class TreeMgr:
     def __init__(self, tree_widget, tree_Widget_task, folders, root_path, utility_mgr, ui):
@@ -507,7 +495,6 @@ class UtilityMgr:
         selected_project = self.ui.comboBox_task.currentText()
         print(f"선택된 프로젝트: {selected_project}")
 
-
     def get_projects(self):
         project = []
         for name in os.listdir(self.root_path):
@@ -516,8 +503,6 @@ class UtilityMgr:
                 continue
             project.append(name)
         return project
-
-        
 
     # 검색 실행 함수
     def run_search(self): 
@@ -764,10 +749,6 @@ class TableMgr:
         file_name = item.text().strip()
         full_path = os.path.join(self.current_folder, file_name)  
 
-        print(f" 현재 폴더: {self.current_folder}")
-        print(f" 선택한 파일/폴더: '{file_name}'")
-        print(f" 최종 경로: {full_path}")
-
         if os.path.isdir(full_path):
 
             self.current_folder = full_path  
@@ -863,10 +844,10 @@ class TableMgr:
                 return found_item
 
         return None 
-
+    
 class UISetup(QObject):
     def __init__(self, ui):
-        super().__init__()
+        super().__init__() 
         self.ui = ui
         self.button_images = self.get_button_images()
         self.button_mapping = self.get_button_mapping()
