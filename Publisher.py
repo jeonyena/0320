@@ -586,41 +586,12 @@ class MayaFileManager(MayaPathManager):
                 self.full_cache_path = os.path.join(self.cache_parent_dir, self.cache_file_name)
                 self.pub_cache_list.append(self.full_cache_path)
 
-        # # Shot Grid로 보내기 위한 디스크립션
-        # self.user_comment_des = self.pub_app_ui.textEdit_description.toPlainText().strip()
-
-        # # PlayblastHandler에서 thumb_path 가져오기
-        # if hasattr(self.pub_app_manager.playblast_handler, 'thumb_path'):
-        #     self.thumb_path = self.pub_app_manager.playblast_handler.thumb_path
-        # else:
-        #     self.thumb_path = None  # 썸네일이 없을 경우 None 처리
-
-        # # PlayblastHandler에서  confirm_mov_path 가져오기
-        # if hasattr(self.pub_app_manager.playblast_handler, 'confirm_mov_path'):
-        #     self.confirm_mov_path = self.pub_app_manager.playblast_handler.confirm_mov_path
-        # else:
-        #     self.confirm_mov_path= None  # 썸네일이 없을 경우 None 처리
-
-        # # Publish하면서 나온 Data들의 딕셔너리 생성
-        # self.pub_app_result = {}
-
         # Shot Grid로 보낼 description 가져오기
         self.user_comment_des = self.pub_app_ui.textEdit_description.toPlainText().strip()
 
         # PlayblastHandler에서 썸네일 경로 가져오기
         self.thumb_path = getattr(self.pub_app_manager.playblast_handler, 'thumb_path', None)
         self.confirm_mov_path = getattr(self.pub_app_manager.playblast_handler, 'confirm_mov_path', None)
-
-        # #  필수 데이터가 None일 경우 기본값 추가
-        # if self.pub_cache_list is None:
-        #     self.pub_cache_list = []
-        # if self.pub_file_path is None:
-        #     self.pub_file_path = "Unknown_Maya_File.ma"
-        # if self.confirm_mov_path is None:
-        #     self.confirm_mov_path = "Unknown_Mov_File.mov"
-        # if self.thumb_path is None:
-        #     self.thumb_path = "Unknown_Thumbnail.jpg"
-
 
         # Pub Info
         self.pub_app_result["pub_info"] = {
@@ -682,12 +653,6 @@ class PlayBlastHandler(MayaPathManager):
         saved_file = self.thumb_path + ".0.jpg"  # Maya가 저장한 파일명
         if os.path.exists(saved_file):
             os.rename(saved_file, self.thumb_path)
-
-        # 만약 썸네일 로딩이 오래걸리면 풀기
-        # wait_time = 0
-        # while not os.path.exists(self.thumb_path) and wait_time < 1:
-        #     time.sleep(0.1)
-        #     wait_time += 0.1
 
         print(f"스크린샷 저장: {self.thumb_path}")
         self.change_button()
